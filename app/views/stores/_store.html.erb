@@ -1,0 +1,20 @@
+<div id="<%= dom_id store %>">
+  <p>
+    <strong>Storename:</strong>
+    <%= store.storename %>
+  </p>
+
+  <p>
+    <strong>Storenum:</strong>
+    <%= store.storenum %>
+  </p>
+
+  <%= link_to "Aisles", store_aisles_path(store) %>
+
+  <%= link_to "Articles", store_articles_path(store) %>
+
+ 
+
+
+
+</div>

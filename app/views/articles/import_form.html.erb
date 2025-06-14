@@ -1,0 +1,45 @@
+<h2>Upload Articles CSV</h2>
+
+<%= form_with url: import_store_articles_path(@store), local: true, multipart: true do %>
+  <%= hidden_field_tag :store_id, @store.id %>
+
+  <div>
+    <%= label_tag :files, "CSV Files" %>
+    <%= file_field_tag :files, multiple: true, required: true %>
+  </div>
+
+  <hr>
+
+  <div>
+    <%= label_tag :hfb, "Filter by HFB" %>
+    <%= text_field_tag :hfb %>
+  </div>
+
+  <div>
+    <%= label_tag :pa, "Filter by PA" %>
+    <%= text_field_tag :pa %>
+  </div>
+
+  <div>
+    <%= label_tag :sm_list, "SALESMETHODs (comma-separated)" %>
+    <%= text_field_tag :sm_list %>
+  </div>
+
+  <div>
+    <%= label_tag :ssd_cutoff, "SSD on or before (YYYYMMDD)" %>
+    <%= text_field_tag :ssd_cutoff, nil, placeholder: "e.g. 20250101" %>
+  </div>
+
+  <div>
+    <%= label_tag :eds_baseonhand_date, "Only include where EDS < date AND BASEONHAND > 0" %>
+    <%= date_field_tag :eds_baseonhand_date %>
+  </div>
+
+  <div>
+    <%= check_box_tag :upload_all, "1" %>
+    <%= label_tag :upload_all, "Upload ALL (ignore filters)" %>
+  </div>
+
+  <br>
+  <%= submit_tag "Upload Articles" %>
+<% end %>

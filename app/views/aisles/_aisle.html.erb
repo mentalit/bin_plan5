@@ -1,0 +1,29 @@
+<div id="<%= dom_id aisle %>">
+  <p>
+    <strong>Aislenum:</strong>
+    <%= aisle.aislenum %>
+  </p>
+
+  <p>
+    <strong>Aislestart:</strong>
+    <%= aisle.aislestart %>
+  </p>
+
+  <p>
+    <strong>Aisleend:</strong>
+    <%= aisle.aisleend %>
+  </p>
+
+  <p>
+    <strong>Aisledepth:</strong>
+    <%= aisle.aisledepth %>
+  </p>
+
+  <p>
+    <strong>Aisleheight:</strong>
+    <%= aisle.aisleheight %>
+  </p>
+
+  <%= link_to "Sections", aisle_sections_path(aisle) %>
+
+</div>

@@ -1,0 +1,11 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  level_height: 1
+  level_depth: 1
+  section: one
+
+two:
+  level_height: 1
+  level_depth: 1
+  section: two
