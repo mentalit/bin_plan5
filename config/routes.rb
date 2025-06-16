@@ -9,9 +9,15 @@ Rails.application.routes.draw do
       end
     end
     resources :aisles, shallow: true do
+      member do
+        post :plan_articles
+        get :export_assignments
+      end
       resources :sections, shallow: true do
         resources :levels
       end
     end
   end
 end
+
+

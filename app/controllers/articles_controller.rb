@@ -6,8 +6,7 @@ class ArticlesController < ApplicationController
     @articles = @store.articles
   end
 
-  def show
-  end
+  def show; end
 
   def new
     @article = @store.articles.build
@@ -22,8 +21,7 @@ class ArticlesController < ApplicationController
     end
   end
 
-  def edit
-  end
+  def edit; end
 
   def update
     if @article.update(article_params)
@@ -45,20 +43,20 @@ class ArticlesController < ApplicationController
   end
 
   def import
-  if params[:files].present?
-    files = params[:files].is_a?(Array) ? params[:files] : [params[:files]]
+    if params[:files].present?
+      files = params[:files].is_a?(Array) ? params[:files] : [params[:files]]
 
-    ArticleUploadService.new(
-      files: files,
-      store_id: @store.id,
-      filters: extract_filters
-    ).call
+      ArticleUploadService.new(
+        files: files,
+        store_id: @store.id,
+        filters: extract_filters
+      ).call
 
-    redirect_to store_articles_path(@store), notice: "Articles imported."
-  else
-    redirect_to store_articles_path(@store), alert: "Please upload at least one CSV file."
+      redirect_to store_articles_path(@store), notice: "Articles imported."
+    else
+      redirect_to store_articles_path(@store), alert: "Please upload at least one CSV file."
+    end
   end
-end
 
   private
 
@@ -82,6 +80,6 @@ end
   end
 
   def article_params
-    params.require(:article).permit(:HFB, :PA, :SALESMETHOD, :BASEONHAND, :ARTNO, :ARTNAME_UNICODE, :CP_LENGTH, :CP_WIDTH, :CP_HEIGHT, :WEIGHT_G, :SLID_H, :MPQ, :PALQ, :SSD, :EDS, :UL_HEIGHT_GROSS, :UL_LENGTH_GROSS, :UL_WIDTH_GROSS, :DTFP, :DTFP_PLUS, :RSSQ, :store_id)
+    Article.column_names.map(&:to_sym)
   end
 end

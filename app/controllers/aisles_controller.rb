@@ -9,7 +9,8 @@ class AislesController < ApplicationController
 
   # GET /aisles/1 or /aisles/1.json
   def show
-  end
+  @sections = @aisle.sections.includes(levels: :articles)
+end
 
   # GET /aisles/new
   def new
@@ -18,6 +19,24 @@ class AislesController < ApplicationController
 
   # GET /aisles/1/edit
   def edit
+  end
+
+  def plan_articles
+    @aisle = Aisle.find(params[:id])
+    hfb = params[:hfb].presence
+    pa = params[:pa].presence
+
+    BinPositionerService.new(@aisle, hfb: hfb, pa: pa).call
+
+    redirect_to @aisle, notice: "Articles planned successfully."
+  end
+
+  def export_assignments
+    aisle = Aisle.find(params[:id])
+    service = BinPositionerService.new(aisle)
+    csv_data = service.export_assignments_to_csv
+
+    send_data csv_data, filename: "aisle_#{aisle.aislenum}_assignments.csv"
   end
 
   # POST /aisles or /aisles.json

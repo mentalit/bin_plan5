@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_06_14_161856) do
+ActiveRecord::Schema[7.1].define(version: 2025_06_15_174125) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -57,12 +57,22 @@ ActiveRecord::Schema[7.1].define(version: 2025_06_14_161856) do
     t.index ["store_id"], name: "index_articles_on_store_id"
   end
 
+  create_table "articles_levels", force: :cascade do |t|
+    t.bigint "article_id", null: false
+    t.bigint "level_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["article_id"], name: "index_articles_levels_on_article_id"
+    t.index ["level_id"], name: "index_articles_levels_on_level_id"
+  end
+
   create_table "levels", force: :cascade do |t|
     t.integer "level_height"
     t.integer "level_depth"
     t.bigint "section_id", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "level_num"
     t.index ["section_id"], name: "index_levels_on_section_id"
   end
 
@@ -85,6 +95,8 @@ ActiveRecord::Schema[7.1].define(version: 2025_06_14_161856) do
 
   add_foreign_key "aisles", "stores"
   add_foreign_key "articles", "stores"
+  add_foreign_key "articles_levels", "articles"
+  add_foreign_key "articles_levels", "levels"
   add_foreign_key "levels", "sections"
   add_foreign_key "sections", "aisles"
 end

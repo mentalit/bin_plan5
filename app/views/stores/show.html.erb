@@ -1,5 +1,9 @@
 <p style="color: green"><%= notice %></p>
 
+<%= @store.articles.count %>
+
+<%= @store.articles.where(planned: true).count %> 
+
 <%= render @store %>
 
 <div>
@@ -8,3 +12,22 @@
 
   <%= button_to "Destroy this store", @store, method: :delete %>
 </div>
+
+
+<% @store.articles.where(planned: false).each do |x| %> 
+
+
+<div class="card">
+  ARTNO: <%= x.ARTNO %> ARTNAME_UNICODE: <%= x.ARTNAME_UNICODE %> CP_LENGTH: <%= x.CP_LENGTH %>
+</div>
+
+<% end %>
+
+<h2>Skipped Articles (with Reasons)</h2>
+
+<% @skipped_articles.each do |entry| %>
+  <div class="card mb-2 p-2">
+    <strong>ARTNO:</strong> <%= entry[:artno] %><br>
+    <strong>Reason:</strong> <%= entry[:reason] %>
+  </div>
+<% end %>

@@ -1,5 +1,22 @@
 <p style="color: green"><%= notice %></p>
 
+<%= form_with url: plan_articles_aisle_path(@aisle), method: :post, local: true do %>
+  <div class="mb-2">
+    <%= label_tag :hfb, "Filter by HFB" %>
+    <%= select_tag :hfb, options_for_select(Article.distinct.pluck(:HFB).compact.sort), include_blank: true, class: "form-select" %>
+  </div>
+
+  <div class="mb-2">
+    <%= label_tag :pa, "Filter by PA" %>
+    <%= select_tag :pa, options_for_select(Article.distinct.pluck(:PA).compact.sort), include_blank: true, class: "form-select" %>
+  </div>
+
+  <%= submit_tag "Plan Articles", class: "btn btn-primary" %>
+<% end %>
+
+
+<%= link_to "Download Aisle Assignments CSV", export_assignments_aisle_path(@aisle), class: "btn btn-secondary" %>
+
 <%= render @aisle %>
 
 <div>
@@ -8,3 +25,44 @@
 
   <%= button_to "Destroy this aisle", @aisle, method: :delete %>
 </div>
+
+<h2>Planned Articles</h2>
+
+<% @sections.each do |section| %>
+  <div class="card mb-4">
+    <div class="card-header">
+      <strong>Section <%= section.sectionnum %></strong>  
+      (Height: <%= section.sec_height %> mm, Depth: <%= section.sec_depth %> mm)
+    </div>
+    <div class="card-body">
+      <% section.levels.order(:level_num).each do |level| %>
+        <div class="mb-3">
+          <h5>
+  Level <%= level.level_num %> 
+  (Depth: <%= level.level_depth %> mm, 
+  Height: <%= level.level_height || 'Not set' %> mm)
+</h5>
+          <% planned_articles = level.articles.where(planned: true) %>
+          <% if planned_articles.any? %>
+            <ul>
+              <% planned_articles.each do |article| %>
+                <li>
+                  <strong><%= article.ARTNO %></strong> - <%= article.ARTNAME_UNICODE %> |
+                  W: <%= article.CP_WIDTH || article.UL_WIDTH_GROSS %> mm, 
+                  H: <%= level.level_height || 'Not set' %> mm), 
+                  L: <%= article.CP_LENGTH || article.UL_LENGTH_GROSS %> mm'
+                  WT: <%= article.WEIGHT_G %> g
+
+
+                </li>
+              <% end %>
+            </ul>
+          <% else %>
+            <p class="text-muted">No articles assigned to this level.</p>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+  </div>
+<% end %>
+
