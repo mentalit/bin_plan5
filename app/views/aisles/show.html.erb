@@ -49,9 +49,11 @@
                 <li>
                   <strong><%= article.ARTNO %></strong> - <%= article.ARTNAME_UNICODE %> |
                   W: <%= article.CP_WIDTH || article.UL_WIDTH_GROSS %> mm, 
-                  H: <%= level.level_height || 'Not set' %> mm), 
+                  h <%= article.CP_HEIGHT || article.UL_HEIGHT_GROSS %> mm,
                   L: <%= article.CP_LENGTH || article.UL_LENGTH_GROSS %> mm'
                   WT: <%= article.WEIGHT_G %> g
+                  DT: <%= article.DT %>
+                  Locations: <%= article.sections.count %>
 
 
                 </li>
@@ -66,3 +68,4 @@
   </div>
 <% end %>
 
+<p>%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%</p>

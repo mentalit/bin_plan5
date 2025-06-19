@@ -11,11 +11,7 @@ class StoresController < ApplicationController
   @store = Store.find(params[:id])
   @skipped_articles = []
 
-  @store.aisles.each do |aisle|
-    service = BinPositionerService.new(aisle)
-    service.call
-    @skipped_articles.concat(service.skipped_articles)
-  end
+  
 end
 
   # GET /stores/new
