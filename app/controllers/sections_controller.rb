@@ -14,6 +14,7 @@ class SectionsController < ApplicationController
   # GET /sections/new
   def new
     @section = @aisle.sections.build
+    
   end
 
   # GET /sections/1/edit
@@ -21,9 +22,10 @@ class SectionsController < ApplicationController
   end
 
   # POST /sections or /sections.json
-  def create
+  def create 
     @section = @aisle.sections.build(section_params)
-
+    @section.sec_width = 2921
+    
     respond_to do |format|
       if @section.save
         format.html { redirect_to @section, notice: "Section was successfully created." }
@@ -70,6 +72,6 @@ class SectionsController < ApplicationController
 
     # Only allow a list of trusted parameters through.
     def section_params
-      params.require(:section).permit(:sectionnum, :sec_depth, :sec_height, :aisle_id)
+      params.require(:section).permit(:sectionnum, :sec_depth, :sec_height, :sec_width, :aisle_id)
     end
 end

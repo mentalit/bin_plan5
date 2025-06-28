@@ -40,6 +40,18 @@
     <%= form.label :store_id, style: "display: block" %>
     <%= form.text_field :store_id %>
   </div>
+    <div>
+      
+      <%= form.label :sec_width, "Section Width (mm)" %>
+      <%= form.number_field :sec_width %>
+    </div>
+  
+
+  <div class="field">
+  <%= form.label :loc_type, "Location Type" %>
+  <%= form.select :loc_type, options_for_select([["Shallow", "shallow"], ["Deep", "deep"]], @aisle.loc_type), {}, class: "form-control" %>
+
+</div>
 
   <div>
     <%= form.submit %>

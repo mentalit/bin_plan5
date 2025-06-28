@@ -10,6 +10,7 @@ Rails.application.routes.draw do
     end
     resources :aisles, shallow: true do
       member do
+        delete :destroy_nonzero_levels
         post :plan_articles
         get :export_assignments
       end

@@ -1,6 +1,6 @@
 class Section < ApplicationRecord
   belongs_to :aisle
-  has_many :levels
+  has_many :levels, dependent: :destroy
 
    after_create :create_default_level
 

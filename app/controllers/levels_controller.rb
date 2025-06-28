@@ -23,6 +23,8 @@ class LevelsController < ApplicationController
   # POST /levels or /levels.json
   def create
     @level = @section.levels.build(level_params)
+    @level.level_width = 2921
+
 
     respond_to do |format|
       if @level.save

@@ -10,7 +10,7 @@ class StoresController < ApplicationController
  def show
   @store = Store.find(params[:id])
   @skipped_articles = []
-
+  @unplanned = @store.articles.where(planned: false)
   
 end
 

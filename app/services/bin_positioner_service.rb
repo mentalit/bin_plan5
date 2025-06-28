@@ -1,101 +1,48 @@
 class BinPositionerService
-  require 'csv'
-
-  WIDTH_LIMIT = 2921 # max width per section
-  HEIGHT_TOLERANCE = 254
-  MAX_LEVELS = %w[00 01 02]
-  SHALLOW_DEPTH_CUTOFF = 1524
-  TALL_ARTICLE_THRESHOLD = 2000
-  HEIGHT_GROUP_TOLERANCE = 100
-
-  attr_reader :skipped_articles
-
   def initialize(aisle, filters = {})
     @aisle = aisle
     @filters = filters
     @articles = Article.where(store_id: aisle.store_id, planned: [false, nil])
-    @articles = @articles.where('"HFB" = ?', filters[:hfb]) if filters[:hfb].present?
-    @articles = @articles.where('"PA" = ?', filters[:pa]) if filters[:pa].present?
+    @articles = @articles.where(HFB: filters[:hfb]) if filters[:hfb].present?
+    @articles = @articles.where(PA: filters[:pa]) if filters[:pa].present?
     @sections = aisle.sections.includes(:levels)
-    @used_width_by_section_level = Hash.new(0)
-    @max_height_by_section_level = Hash.new(0)
-    @skipped_articles = []
-    @multi_location_tracker = Hash.new(0)
   end
 
   def call
-    Rails.logger.debug "[BinPositioner] Starting for Aisle ##{@aisle.id}"
+    articles = @articles.select { |a| valid_dimensions?(a) }
+    grouped_articles = group_by_height(articles)
 
-    @articles.each do |article|
-      reason = nil
+    @sections.each do |section|
+      next if section.sec_depth.to_i < 1296
 
-      width = select_width(article)
-      length = select_length(article)
-      if width.nil? || width.zero?
-        reason = "Missing or invalid width"
-        Rails.logger.debug "[BinPositioner] Skipping Article #{article.ARTNO}: #{reason}"
-        @skipped_articles << { artno: article.ARTNO, reason: reason }
-        next
-      end
+      section_levels = section.levels.index_by(&:level_num)
+      max_width = section.sec_width.to_i
 
-      level_num = select_level(article)
+      level_00 = section_levels["00"] || section.levels.create!(
+        level_num: "00",
+        level_depth: section.sec_depth,
+        level_height: 0
+      )
+      width_used = Hash.new(0)
 
-      @sections.each do |section|
-        # New rule: skip section if DT = 1 and UL_LENGTH > 1296 and section depth < 1296
-        if article.DT.to_s == "1" && article.UL_LENGTH_GROSS.to_i > 1296 && section.sec_depth < 1296
-          Rails.logger.debug "[BinPositioner] Skipping Section #{section.sectionnum} for Article #{article.ARTNO} due to DT=1 UL_LENGTH constraint"
-          next
-        end
+      grouped_articles.sort_by { |h, _| -h }.each do |height, articles|
+        articles.sort_by! { |a| -article_width(a) }
 
-        # Exclude article from section based on length mismatch
-        if (length < 1296 && section.sec_depth > 1324) || (length > 1296 && section.sec_depth < 1324)
-          Rails.logger.debug "[BinPositioner] Skipping Section #{section.sectionnum} for Article #{article.ARTNO} due to length mismatch"
-          next
-        end
+        articles.each do |article|
+          next if article.planned?
 
-        ensure_fixed_levels(section)
-        level = section.levels.find_by(level_num: level_num)
-        next unless level
+          width = article_width(article)
+          next if width <= 0
 
-        key = "#{section.id}-#{level.id}"
-        if @used_width_by_section_level[key] + width <= WIDTH_LIMIT
+          level = determine_level(section, section_levels, height, article)
+          next unless level
+
+          next if width_used[level.id] + width > max_width
+
           article.levels << level unless article.levels.include?(level)
-          @used_width_by_section_level[key] += width
-
-          article_height = article.CP_HEIGHT.to_i.nonzero? || article.UL_HEIGHT_GROSS.to_i
-          if article_height > 0 && article_height > @max_height_by_section_level[key]
-            @max_height_by_section_level[key] = article_height
-            if level.level_num == "00"
-              level.update!(level_height: article_height + HEIGHT_TOLERANCE)
-            end
-          end
-
           article.update!(planned: true)
-          @multi_location_tracker[article.id] += 1
-
-          Rails.logger.debug "[BinPositioner] Assigned Article #{article.ARTNO} to Section #{section.sectionnum}, Level #{level.level_num}"
-          break
-        end
-      end
-    end
-  end
-
-  def export_assignments_to_csv
-    CSV.generate(headers: true) do |csv|
-      csv << ["ARTNO", "ARTNAME_UNICODE", "SLID_H", "Section", "Level", "Level Height", "Multiple Locations"]
-      @aisle.sections.includes(levels: :articles).each do |section|
-        section.levels.each do |level|
-          level.articles.each do |article|
-            csv << [
-              article.ARTNO,
-              article.ARTNAME_UNICODE,
-              article.SLID_H,
-              section.sectionnum,
-              level.level_num,
-              level.level_height,
-              @multi_location_tracker[article.id] > 1 ? 'Yes' : 'No'
-            ]
-          end
+          width_used[level.id] += width
+          level.update!(level_height: [level.level_height.to_i, height].max)
         end
       end
     end
@@ -103,36 +50,77 @@ class BinPositionerService
 
   private
 
-  def select_width(article)
-    if article.DT.to_s == "1" || article.WEIGHT_G.to_i >= 12192
-      article.UL_WIDTH_GROSS.to_i
-    else
-      article.CP_WIDTH.to_i
+  def valid_dimensions?(article)
+    dt = article.DT.to_s
+    return false unless %w[0 1].include?(dt)
+
+    width = article_width(article)
+    depth = article_depth(article)
+    min_depth_ratio = 0.5
+
+    @sections.any? do |section|
+      section_depth = section.sec_depth.to_i
+      next if section_depth < 1296
+
+      width > 0 && depth > 0 && depth >= (section_depth * min_depth_ratio)
     end
   end
 
-  def select_length(article)
-    if article.DT.to_s == "1" || article.WEIGHT_G.to_i >= 12192
-      article.UL_LENGTH_GROSS.to_i
+  def article_width(article)
+    (article.DT.to_s == "1" ? article.UL_WIDTH_GROSS : article.CP_WIDTH).to_i rescue 0
+  end
+
+  def article_depth(article)
+    (article.DT.to_s == "1" ? article.UL_LENGTH_GROSS : article.CP_LENGTH).to_i rescue 0
+  end
+
+  def article_height(article)
+    if article.DT.to_s == "1"
+      article.UL_HEIGHT_GROSS.to_i
     else
-      article.CP_LENGTH.to_i.nonzero? || article.UL_LENGTH_GROSS.to_i
+      (article.CP_HEIGHT.to_i * article.RSSQ.to_i) + 254
     end
   end
 
-  def select_level(article)
-    if article.DT.to_s == "1" || article.WEIGHT_G.to_i >= 12192
-      "00"
-    elsif article.WEIGHT_G.to_i < 18143 && article.WEIGHT_G.to_i > 9072
-      "01"
-    else
-      "02"
+  def group_by_height(articles)
+    tolerance = 254
+    groups = {}
+
+    articles.each do |article|
+      height = article_height(article)
+      next if height <= 0
+
+      key = groups.keys.find { |h| (h - height).abs <= tolerance } || height
+      groups[key] ||= []
+      groups[key] << article
     end
+
+    groups
   end
 
-  def ensure_fixed_levels(section)
-    existing_levels = section.levels.pluck(:level_num)
-    (MAX_LEVELS - existing_levels).each do |lvl_num|
-      section.levels.create!(level_num: lvl_num, level_depth: section.sec_depth)
+  def determine_level(section, section_levels, height, article)
+    # Only allow level > 00 if level 00 exists and is full
+    base_level = section_levels["00"]
+    return nil unless base_level
+
+    # Enforce strict creation order: 01 -> 02 -> 03 ...
+    (0..9).each do |i|
+      level_num = i.to_s.rjust(2, '0')
+      existing = section_levels[level_num]
+
+      if existing && existing.level_height.to_i >= height
+        return existing
+      elsif !existing && (i == 0 || section_levels[(i - 1).to_s.rjust(2, '0')])
+        new_level = section.levels.create!(
+          level_num: level_num,
+          level_depth: section.sec_depth,
+          level_height: 0
+        )
+        section_levels[level_num] = new_level
+        return new_level
+      end
     end
+
+    nil
   end
 end

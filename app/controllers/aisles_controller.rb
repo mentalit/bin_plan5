@@ -11,6 +11,13 @@ class AislesController < ApplicationController
   def show
      @store = @aisle.store
     @sections = @aisle.sections.includes(levels: :articles)
+    all_articles = Article.where(store_id: @aisle.store_id, planned: true)
+  relevant_articles = all_articles.select do |a|
+    a.DT.to_s == "1" || (a.DT.to_s == "0" && a.WEIGHT_G.to_i > 22226)
+  end
+
+  max_height = relevant_articles.map(&:UL_HEIGHT_GROSS).compact.map(&:to_i).max || 0
+  @level_height = max_height + 254
   end
 
   # GET /aisles/new
@@ -22,6 +29,14 @@ class AislesController < ApplicationController
   def edit
   end
 
+  def destroy_nonzero_levels
+  @aisle = Aisle.find(params[:id])
+  @aisle.sections.includes(:levels).each do |section|
+    section.levels.where.not(level_num: "00").destroy_all
+  end
+  redirect_to aisle_path(@aisle), notice: "All non-00 levels were deleted."
+end
+
   def plan_articles
     @planner = BinPositionerService.new(@aisle, hfb: params[:hfb], pa: params[:pa])
     @planner.call
@@ -29,15 +44,20 @@ class AislesController < ApplicationController
     redirect_to aisle_path(@aisle), notice: "Articles planned"
   end
 
-  def export_assignments
-    service = BinPositionerService.new(@aisle)
-    csv_data = service.export_assignments_to_csv
-    send_data csv_data, filename: "aisle_#{@aisle.aislenum}_assignments.csv"
-  end
+ def export_assignments
+  aisle = Aisle.find(params[:id])
+  articles = aisle.sections.flat_map { |s| s.levels.flat_map(&:articles) }.uniq
+
+  csv_data = ArticleUploadService.new(files: [], store_id: aisle.store_id).export_assignments_to_csv(articles)
+
+  send_data csv_data, filename: "aisle_#{aisle.aislenum}_assignments.csv"
+end
+
 
   # POST /aisles or /aisles.json
   def create
     @aisle = @store.aisles.build(aisle_params)
+    sec_width = params[:aisle][:sec_width].to_i
 
     respond_to do |format|
       if @aisle.save
@@ -80,7 +100,7 @@ class AislesController < ApplicationController
   end
 
   def aisle_params
-    params.require(:aisle).permit(:aislenum, :aislestart, :aisleend, :aisledepth, :aisleheight, :store_id)
+    params.require(:aisle).permit(:aislenum, :aislestart, :aisleend, :aisledepth, :aisleheight, :loc_type, :store_id)
   end
 
   def get_store

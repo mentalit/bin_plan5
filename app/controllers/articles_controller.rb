@@ -14,6 +14,7 @@ class ArticlesController < ApplicationController
 
   def create
     @article = @store.articles.build(article_params)
+    @article.planned = false
     if @article.save
       redirect_to @article, notice: "Article was successfully created."
     else
@@ -80,6 +81,13 @@ class ArticlesController < ApplicationController
   end
 
   def article_params
-    Article.column_names.map(&:to_sym)
+  params.require(:article).permit(
+    :ARTNO, :ARTNAME_UNICODE, :SALESMETHOD, :RANGECODE1,
+    :LENGTH_M, :WIDTH_M, :HEIGHT_M, :VOLUME_M3, :WEIGHT_G,
+    :SLID_H, :MPQ, :PALQ, :SSD, :EDS, :DTFP, :DTFP_PLUS,
+    :RSSQ, :SAL_SOL_INDIC, :UL_HEIGHT_GROSS, :UL_LENGTH_GROSS,
+    :UL_WIDTH_GROSS, :UL_DIAMTER, :CP_HEIGHT, :CP_LENGTH,
+    :CP_WIDTH, :HFB, :PA, :SM, :BASEONHAND, :planned
+    )
   end
 end
