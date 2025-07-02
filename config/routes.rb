@@ -13,6 +13,7 @@ Rails.application.routes.draw do
         delete :destroy_nonzero_levels
         post :plan_articles
         get :export_assignments
+        delete :clear_planned_articles
       end
       resources :sections, shallow: true do
         resources :levels

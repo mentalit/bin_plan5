@@ -14,11 +14,16 @@
   <%= submit_tag "Plan Articles", class: "btn btn-primary" %>
 <% end %>
 
+<%= button_to "🧹 Clear Planned DT=1 Articles", clear_planned_articles_aisle_path(@aisle),
+              method: :delete,
+              data: { confirm: "Are you sure you want to remove all planned DT=1 articles from this aisle?" },
+              class: "btn btn-danger" %>
+
+
 <%= button_to "Destroy Non-00 Levels", destroy_nonzero_levels_aisle_path(@aisle),
               method: :delete,
               data: { confirm: "Are you sure you want to delete ALL non-00 levels for this aisle?" },
               class: "btn btn-danger mt-3" %>
-
 
 <%= link_to "Download Aisle Assignments CSV", export_assignments_aisle_path(@aisle), class: "btn btn-secondary" %>
 
@@ -52,20 +57,20 @@
               <% planned_articles.each do |article| %>
                 <li>
                   <strong><%= article.ARTNO %></strong> - <%= article.ARTNAME_UNICODE %> |
-                  W: <%= article.CP_WIDTH || article.UL_WIDTH_GROSS %> mm,
-                  H: 
-                  <% if level.level_num == "00" %>
-                    <% if article.DT.to_s == "1" %>
-                      <%= article.UL_HEIGHT_GROSS %> mm
-                    <% elsif article.DT.to_s == "0" && article.WEIGHT_G.to_i > 22226 %>
-                      <%= (article.CP_HEIGHT.to_i * article.RSSQ.to_i) + 254 %> mm
+                  <% if article.DT.to_s == "1" %>
+                    W: <%= article.UL_WIDTH_GROSS %> mm,
+                    H: <%= article.UL_HEIGHT_GROSS %> mm,
+                    L: <%= article.UL_LENGTH_GROSS %> mm,
+                  <% elsif article.DT.to_s == "0" %>
+                    W: <%= article.CP_WIDTH %> mm,
+                    H: 
+                    <% if level.level_num == "00" && article.WEIGHT_G.to_i > 22226 %>
+                      <%= (article.CP_HEIGHT.to_i * article.RSSQ.to_i) + 254 %> mm,
                     <% else %>
-                      <%= article.CP_HEIGHT || article.UL_HEIGHT_GROSS %> mm
+                      <%= article.CP_HEIGHT %> mm,
                     <% end %>
-                  <% else %>
-                    <%= article.CP_HEIGHT || article.UL_HEIGHT_GROSS %> mm
-                  <% end %>,
-                  L: <%= article.CP_LENGTH || article.UL_LENGTH_GROSS %> mm,
+                    L: <%= article.CP_LENGTH %> mm,
+                  <% end %>
                   WT: <%= article.WEIGHT_G %> g,
                   DT: <%= article.DT %>,
                   Locations: <%= article.sections.count %>

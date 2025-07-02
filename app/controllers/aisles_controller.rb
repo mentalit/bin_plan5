@@ -29,6 +29,25 @@ class AislesController < ApplicationController
   def edit
   end
 
+  def clear_planned_articles
+  aisle = Aisle.find(params[:id])
+
+  # Unassign all DT=1 articles from level 00 in the aisle's sections
+  aisle.sections.includes(:levels).each do |section|
+    level = section.levels.find_by(level_num: '00')
+    next unless level
+
+    level.articles.each do |article|
+      
+        level.articles.destroy(article)
+        article.update!(planned: false)
+      
+    end
+  end
+
+  redirect_to aisle_path(aisle), notice: "Planned DT=1 articles cleared."
+end
+
   def destroy_nonzero_levels
   @aisle = Aisle.find(params[:id])
   @aisle.sections.includes(:levels).each do |section|
