@@ -38,10 +38,10 @@ class AislesController < ApplicationController
     next unless level
 
     level.articles.each do |article|
-      
+      if article.DT.to_s == '1'
         level.articles.destroy(article)
         article.update!(planned: false)
-      
+      end
     end
   end
 

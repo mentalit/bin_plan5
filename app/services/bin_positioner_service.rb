@@ -3,8 +3,7 @@ class BinPositionerService
     @aisle = aisle
     @filters = filters
     @articles = Article.where(store_id: aisle.store_id, planned: [false, nil])
-                        .where(DT: ['0', '1'])
-                        .where('("DT" = ? AND "WEIGHT_G" > ?) OR "DT" = ?', '0', 22226, '1')
+                       .where(DT: ['0', '1'])
     @articles = @articles.where(HFB: filters[:hfb]) if filters[:hfb].present?
     @articles = @articles.where(PA: filters[:pa]) if filters[:pa].present?
     @sections = aisle.sections.includes(:levels)
@@ -16,51 +15,40 @@ class BinPositionerService
     articles = @articles.select { |a| valid_dimensions?(a) }
 
     @sections.each do |section|
-      next if section.sec_depth.to_i < 1296
+      width_used_by_level = Hash.new(0)
+      max_height_by_level = Hash.new(0)
 
-      level = section.levels.find_by(level_num: '00')
-      next unless level
-
-      max_width = section.sec_width.to_i
-      width_used = 0
-      tallest_height = 0
-
-      # Sort articles greedily by width descending
-      articles.sort_by { |a| -article_width(a) }.each do |article|
+      articles.sort_by { |a| -article_weight(a) }.each do |article|
         next if article.planned?
 
         width = article_width(article)
+        weight = article_weight(article)
         depth = article_depth(article)
         height = article_height(article)
-        location_type = @aisle.loc_type
+        level_num = determine_level(article, weight)
 
-        Rails.logger.debug "🟡 Checking \#{article.ARTNO} — width: \#{width}, depth: \#{depth}, height: \#{height}, aisle type: \#{location_type}"
+        next if level_num == "00" && article.UL_LENGTH_GROSS.to_i > section.sec_depth.to_i
+        next if level_num != "00" && article.CP_LENGTH.to_i > section.sec_depth.to_i
 
-        if width <= 0
-          Rails.logger.debug "⛔ Skipping \#{article.ARTNO} due to invalid or missing width"
-          next
+        level = section.levels.find_or_create_by!(level_num: level_num) do |lvl|
+          lvl.level_depth = section.sec_depth
+          lvl.level_height = 0
         end
 
-        if depth <= 0
-          Rails.logger.debug "⛔ Skipping \#{article.ARTNO} due to invalid or missing depth"
-          next
-        end
+        max_width = section.sec_width.to_i
+        next if width_used_by_level[level_num] + width > max_width
 
-        if width_used + width > max_width
-          Rails.logger.debug "⛔ Skipping \#{article.ARTNO} due to width overflow (used: \#{width_used}, article: \#{width}, max: \#{max_width})"
-          next
-        end
-
-        Rails.logger.debug "✅ Assigning \#{article.ARTNO} (DT=\#{article.DT}) to section \#{section.sectionnum} level 00"
         level.articles << article unless level.articles.include?(article)
         article.update!(planned: true)
-        width_used += width
+        width_used_by_level[level_num] += width
 
-        tallest_height = [tallest_height, height].max
-      end
+        adjusted_height = height
+        if level_num != "00" && height > 610
+          adjusted_height = ((height.to_f / 2).ceil + 254).to_i
+        end
 
-      if tallest_height > 0
-        level.update!(level_height: tallest_height)
+        max_height_by_level[level_num] = [max_height_by_level[level_num], adjusted_height].max
+        level.update!(level_height: max_height_by_level[level_num])
       end
     end
   end
@@ -69,12 +57,8 @@ class BinPositionerService
 
   def clean_stale_assignments
     @sections.each do |section|
-      level = section.levels.find_by(level_num: '00')
-      next unless level
-
-      level.articles.each do |article|
-        if article.DT.to_s == '1' || (article.DT.to_s == '0' && article.WEIGHT_G.to_i > 22226)
-          Rails.logger.debug "🧹 Removing stale assignment: \#{article.ARTNO} from section \#{section.sectionnum}"
+      section.levels.each do |level|
+        level.articles.each do |article|
           level.articles.destroy(article)
           article.update!(planned: false)
         end
@@ -82,10 +66,17 @@ class BinPositionerService
     end
   end
 
+  def determine_level(article, weight)
+    return "00" if article.DT.to_s == "1" ||
+                   (article.DT.to_s == "0" && weight > 22226) ||
+                   (article.PALQ.to_i - article.MPQ.to_i < 2)
+
+    return "01" if weight < 22226 && weight < 18144 && weight < 6803.89
+    "02"
+  end
+
   def valid_dimensions?(article)
-    width = article_width(article)
-    depth = article_depth(article)
-    width > 0 && depth > 0
+    article_width(article) > 0 && article_depth(article) > 0
   end
 
   def article_width(article)
@@ -96,18 +87,8 @@ class BinPositionerService
     article.DT.to_s == '1' ? article.UL_LENGTH_GROSS.to_i : article.CP_LENGTH.to_i
   end
 
-  def group_by_height(articles)
-    tolerance = 254
-    groups = {}
-
-    articles.each do |article|
-      height = article_height(article)
-      key = groups.keys.find { |h| (h - height).abs <= tolerance } || height
-      groups[key] ||= []
-      groups[key] << article
-    end
-
-    groups
+  def article_weight(article)
+    article.WEIGHT_G.to_i
   end
 
   def article_height(article)
